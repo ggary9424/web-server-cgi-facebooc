@@ -127,13 +127,16 @@ void cgi_event_dispatcher_loop(cgi_event_dispatcher_t *dispatcher)
             event = dispatcher->events[i];
             tmpfd = event.data.fd;
             if (tmpfd == dispatcher->listenfd) {
-                cfd = accept(tmpfd, &clientaddr, &clientlen);
-                if (cfd == -1)
-                    perror("cfd");
-                cgi_event_dispatcher_addfd(dispatcher, cfd, 1, 1);
-                cgi_http_connection_init5(dispatcher->connections + cfd,
-                                          dispatcher,
-                                          cfd, &clientaddr, clientlen);
+                while ((cfd = accept(tmpfd, &clientaddr, &clientlen)) > 0) {
+                	cgi_event_dispatcher_addfd(dispatcher, cfd, 1, 1);
+                	cgi_http_connection_init5(dispatcher->connections + cfd,
+                                          	dispatcher,
+                                          	cfd, &clientaddr, clientlen);
+				}
+				if (cfd == -1){
+					    if (errno != EAGAIN && errno != ECONNABORTED && errno != EPROTO && errno != EINTR)
+                    perror("accept");
+				}
             } else if (event.events & (EPOLLRDHUP | EPOLLHUP | EPOLLERR)) {
                 cgi_event_dispatcher_rmfd(dispatcher, tmpfd);
             } else if (event.events & EPOLLIN) {
