@@ -3,7 +3,7 @@ OBJPATH = obj
 WEBPATH = web/plugins
 CC ?= gcc
 
-CFLAGS = -std=gnu99 -Wall -O2 -g -I include
+CFLAGS = -std=gnu99 -Wall -g -I include
 LDFLAGS = -lpthread -ldl
 
 EXEC = \
@@ -12,8 +12,6 @@ EXEC = \
 	cgi_http_parser_test \
 	cgi_url_dltrie_test \
 	cgi_event_dispatcher_test \
-	cgi_thread_pool_test \
-	cgi_task_queue_test \
 	cgi_server_test
 EXEC := $(addprefix $(EXECPATH)/,$(EXEC))
 
@@ -23,8 +21,7 @@ OBJS = \
 	cgi_param_slist.o \
 	cgi_url_dltrie.o \
 	cgi_event_dispatcher.o \
-	cgi_task_queue.o \
-	cgi_thread_pool.o
+	cgi_async.o
 OBJS := $(addprefix $(OBJPATH)/,$(OBJS))
 
 TESTOBJS = \
@@ -32,9 +29,7 @@ TESTOBJS = \
 	cgi_param_slist_test.o \
 	cgi_http_parser_test.o \
 	cgi_url_dltrie_test.o \
-	cgi_event_dispatcher_test.o \
-	cgi_thread_pool_test.o \
-	cgi_task_queue_test.o
+	cgi_event_dispatcher_test.o 
 TESTOBJS := $(addprefix $(OBJPATH)/,$(TESTOBJS))
 
 PLUGINS = \
@@ -71,7 +66,7 @@ $(WEBPATH)/%.so: web/src/%.c
 	$(CC) $(CFLAGS) -I web/include -fPIC -shared -nostartfiles \
 		$< -o $@ \
 		src/cgi_factory.c src/cgi_http_parser.c \
-		src/cgi_param_slist.c
+		src/cgi_param_slist.c src/cgi_async.c
 
 $(WEBPATH):
 	@mkdir -p $@

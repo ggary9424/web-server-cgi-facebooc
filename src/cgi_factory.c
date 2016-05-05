@@ -5,6 +5,8 @@
 
 #include "cgi.h"
 #include "factory/cgi_factory.h"
+#include "async/cgi_async.h"
+#include "utils/cgi_dltrie.h"
 
 void *cgi_factory_create(CGI_OBJECT item)
 {
@@ -12,7 +14,7 @@ void *cgi_factory_create(CGI_OBJECT item)
     cgi_http_connection_t *connection = NULL;
     cgi_url_dltrie_t *url_trie = NULL;
     cgi_event_dispatcher_t *dispatcher = NULL;
-    cgi_thread_pool_t *pool = NULL;
+	async_p async = NULL;
 
     switch (item) {
         case HTTP_CONNECTION:
@@ -36,6 +38,8 @@ void *cgi_factory_create(CGI_OBJECT item)
             url_trie->key = (char *)
                 malloc(sizeof(char) * CGI_URL_DLTRIE_KEY_SIZE);
             url_trie->ksize = 0;
+			CGI_DLTRIE_CHILD(url_trie, linker) = NULL;
+			CGI_DLTRIE_SIBLING(url_trie, linker) = NULL;
             object = url_trie;
             break;
 
@@ -52,16 +56,10 @@ void *cgi_factory_create(CGI_OBJECT item)
             object = dispatcher;
             break;
 
-        case TASK_QUEUE:
-            object = malloc(sizeof(cgi_task_queue_t));
-            break;
-        case THREAD_POOL:
-            pool = (cgi_thread_pool_t *)
-                malloc(sizeof(cgi_thread_pool_t));
-            pool->tids = (pthread_t *)
-                malloc(sizeof(pthread_t) * CGI_THREAD_POOL_SIZE);
-            object = pool;
-            break;
+		case ASYNC:
+			async = Async.create(CGI_THREAD_POOL_SIZE);
+			object = async;
+			break;
 
         default:
             break;
@@ -104,8 +102,7 @@ void cgi_factory_destroy(void *object,CGI_OBJECT item)
     cgi_http_connection_t *connection = NULL;
     cgi_url_dltrie_t *url_trie = NULL;
     cgi_event_dispatcher_t *dispatcher = NULL;
-    cgi_task_queue_t *node = NULL;
-    cgi_thread_pool_t *pool = NULL;
+
     switch (item) {
         case HTTP_CONNECTION:
             connection = (cgi_http_connection_t *) object;
@@ -123,14 +120,6 @@ void cgi_factory_destroy(void *object,CGI_OBJECT item)
             free(dispatcher->events);
             cgi_factory_destroy_vector(dispatcher->connections,
                                        HTTP_CONNECTION);
-            break;
-
-        case TASK_QUEUE:
-            break;
-
-        case THREAD_POOL:
-            pool = (cgi_thread_pool_t *) object;
-            free(pool->tids);
             break;
 
         defualt:
