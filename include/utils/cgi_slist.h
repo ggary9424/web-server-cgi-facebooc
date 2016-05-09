@@ -20,7 +20,7 @@
         (elem)->field.next = (head);            \
         (head) = (elem);                        \
     } while (0)									\
-
+ 
 #define CGI_SLIST_INSERT_AFTER(elemo,elemt,field)	\
     do {                                                \
         (elemt)->field.next = (elemo)->field.next;      \

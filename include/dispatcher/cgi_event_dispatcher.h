@@ -12,7 +12,8 @@ extern "C"
 
 extern cgi_event_dispatcher_t *cgi_event_dispatcher_create();
 extern void cgi_event_dispatcher_init(cgi_event_dispatcher_t *dispatcher,
-                                      int epfd,int listenfd,int timeout);
+                                      int epfd,int listenfd,int timeout,
+                                      long connection_timeout); //millisec
 extern void cgi_event_dispatcher_addsig(int sig);
 extern void cgi_event_dispatcher_addpipe(cgi_event_dispatcher_t *dispatcher);
 extern void cgi_event_dispatcher_addfd(cgi_event_dispatcher_t *dispatcher,

@@ -1,14 +1,18 @@
-#include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/epoll.h>
 #include <sys/sendfile.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <fcntl.h>
 
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
+#include <unistd.h>
+#include <time.h>
 
 #include "cgi.h"
 #include "factory/cgi_factory.h"
@@ -49,6 +53,8 @@ void cgi_http_connection_init(cgi_http_connection_t *connection)
     connection->fsize = -1;
     connection->ffd = -1;
     connection->cstatus = CHECK_REQUEST_LINE;
+    connection->idle_start.tv_sec = 0;
+    connection->idle_start.tv_nsec = 0.0;
 }
 
 void cgi_http_connection_init5(cgi_http_connection_t *connection,
@@ -64,6 +70,8 @@ void cgi_http_connection_init5(cgi_http_connection_t *connection,
 
 void cgi_http_connection_read(cgi_http_connection_t *connection)
 {
+    connection->idle_start.tv_sec = 0;
+    connection->idle_start.tv_nsec = 0.0;
     int rd = 0;
     while ((rd = read(connection->sockfd,
                       connection->rbuffer,
@@ -72,9 +80,15 @@ void cgi_http_connection_read(cgi_http_connection_t *connection)
     }
 }
 
-void cgi_http_connection_write(cgi_http_connection_t *connection,
-                               cgi_event_dispatcher_t *dispatcher)
+void cgi_http_connection_write(cgi_http_connection_t *connection)
 {
+    int tmpfd = connection->sockfd;
+    int linger = connection->linger;
+    cgi_event_dispatcher_t *dispatcher = connection->dispatcher;
+    int state = 1;
+    /* set TCP cork */
+    setsockopt(tmpfd, IPPROTO_TCP, TCP_CORK, &state, sizeof(state));
+
     write(connection->sockfd,
           connection->wbuffer,
           connection->write_idx);
@@ -82,10 +96,19 @@ void cgi_http_connection_write(cgi_http_connection_t *connection,
         if (sendfile(connection->sockfd, connection->ffd,
                      NULL, connection->fsize) == -1)
             perror("sendfile");
+        /* uncork */
+        state = 0;
+        setsockopt(tmpfd, IPPROTO_TCP, TCP_CORK, &state, sizeof(state));
         close(connection->ffd);
-        cgi_http_connection_init(connection);
     }
-    close(connection->sockfd);
+    cgi_http_connection_init(connection);
+    if(linger == 1) {
+        cgi_event_dispatcher_modfd(dispatcher, tmpfd, EPOLLIN);
+        clock_gettime(CLOCK_REALTIME, &connection->idle_start);
+    } else {
+        close(connection->sockfd);
+        connection->dispatcher->isconn[tmpfd] = 0;
+    }
 }
 
 LINE_STATUS cgi_http_parse_line(cgi_http_connection_t *connection)
@@ -190,7 +213,8 @@ HTTP_STATUS cgi_http_parse_version(cgi_http_connection_t *connection)
     if (strcmp(connection->version, "HTTP/1.1") == 0) {
         hstatus = CHECKING;
     } else if (strcmp(connection->version, "HTTP/1.0") == 0) {
-        hstatus = HTTP_VERSION_NOT_SUPPORTED;
+        //hstatus = HTTP_VERSION_NOT_SUPPORTED;
+        hstatus = CHECKING;
     } else {
         hstatus = BAD_REQUEST;
     }
@@ -207,8 +231,10 @@ HTTP_STATUS cgi_http_parse_header(cgi_http_connection_t *connection)
     } else if (strncasecmp(current, "Connection:", 11) == 0) {
         current += 11;
         current += strspn(current, " \t");
-        if(strncasecmp(current, "keep-live", 9) == 0) {
+        if(strncasecmp(current, "Keep-Alive", 9) == 0) {
             connection->linger = 1;
+        } else {
+            connection->linger = 0;
         }
     } else if (strncasecmp(current, "Content-Length:", 15) == 0) {
         current += 15;
@@ -226,7 +252,7 @@ HTTP_STATUS cgi_http_parse_content(cgi_http_connection_t *connection)
 {
     connection->content = connection->rbuffer + connection->start_line_idx;
     if (connection->read_idx >= connection->content_length +
-                                connection->start_line_idx) {
+            connection->start_line_idx) {
         connection->content[connection->content_length] = '\0';
         return OK;
     }
@@ -275,7 +301,7 @@ HTTP_STATUS cgi_http_process_write(cgi_http_connection_t *connection)
 {
     cgi_url_dltrie_t *url_dltrie = cgi_url_dltrie_default_root();
     cgi_handler_t handler = cgi_url_dltrie_find(url_dltrie,
-                                                connection->url);
+                            connection->url);
     if (handler == NULL) {
         handler = cgi_url_dltrie_find(url_dltrie, "/error.html");
     }
@@ -292,8 +318,7 @@ void cgi_http_process(cgi_http_connection_t *connection)
         cgi_http_parse_param(connection);
         cgi_http_process_write(connection);
     }
-    cgi_event_dispatcher_modfd(connection->dispatcher,
-                               connection->sockfd, EPOLLOUT);
+    cgi_http_connection_write(connection);
 }
 
 void cgi_http_write_request_line(cgi_http_connection_t *connection,
@@ -365,6 +390,7 @@ void cgi_http_write_content(cgi_http_connection_t *connection, char *content)
 void cgi_http_write_file(cgi_http_connection_t *connection, char *fpath)
 {
     char buffer[CGI_NAME_BUFFER_SIZE];
+    char buffer1[1024];
     snprintf(buffer, CGI_NAME_BUFFER_SIZE - 1,
              "%s%s", CGI_WEB_ROOT, fpath);
     connection->ffd = open(buffer, O_RDONLY);
@@ -372,17 +398,35 @@ void cgi_http_write_file(cgi_http_connection_t *connection, char *fpath)
         perror("open");
     } else {
         connection->fsize = lseek(connection->ffd, 0, SEEK_END);
+        lseek(connection->ffd, 0, SEEK_SET);
         if (connection->fsize == -1) {
             perror("lseek");
         } else {
             snprintf(buffer, CGI_NAME_BUFFER_SIZE - 1,
                      "%lu", connection->fsize);
             cgi_http_write_header(connection, "Content-Length", buffer);
+            if(connection->linger == 1) {
+                cgi_http_write_header(connection, "Connection", "keep-alive");
+                snprintf(buffer, CGI_NAME_BUFFER_SIZE - 1,
+                         "timeout=%lu", (int)(connection->dispatcher->connection_timeout/1000));
+                cgi_http_write_header(connection, "Keep-Alive", buffer);
+            }
             connection->wbuffer[connection->write_idx++] = '\r';
             connection->wbuffer[connection->write_idx++] = '\n';
+
             if (lseek(connection->ffd, 0, SEEK_SET) == -1) {
                 perror("lseek");
             }
+            /*** Another way : write in one tcp segment ***/
+            /*
+            int numbytes;
+            while((numbytes = read(connection->ffd, buffer1, 1024)) > 0){
+            	    connection->write_idx += snprintf(connection->wbuffer + connection->write_idx,
+                                      numbytes,
+                                      "%s", buffer1);
+            }
+            close(connection->ffd);
+            */
         }
     }
 }

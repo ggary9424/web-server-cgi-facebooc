@@ -1,6 +1,7 @@
 #ifndef CGI_H
 #define CGI_H
 
+#include <time.h>
 #include <sys/epoll.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -17,8 +18,8 @@
 #define CGI_HTTP_CONNECTION_WRITE_BUFFER_SIZE 4096
 #define CGI_URL_DLTRIE_KEY_SIZE 32
 #define CGI_CONNECTION_SIZE 1024
-#define CGI_EVENT_SIZE	1024
-#define CGI_THREAD_POOL_SIZE 8
+#define CGI_EVENT_SIZE	64
+#define CGI_THREAD_POOL_SIZE 1
 #define CGI_NAME_BUFFER_SIZE 128
 #define CGI_FILE_BUFFER_SIZE 4096
 
@@ -45,7 +46,7 @@ enum CGI_OBJECT {
     PARAM_SLIST,
     URL_DLTRIE,
     EVENT_DISPATCHER,
-	ASYNC
+    ASYNC
 };
 
 enum LINE_STATUS {
@@ -108,6 +109,7 @@ struct cgi_http_connection {
     int sockfd;
     struct sockaddr clientaddr;
     socklen_t clientlen;
+    struct timespec idle_start;
 };
 
 struct cgi_param_slist {
@@ -126,13 +128,16 @@ struct cgi_url_dltrie {
 
 struct cgi_event_dispatcher {
     cgi_http_connection_t *connections;
+    char *isconn;
     async_p async;
     struct epoll_event *events;
     uint32_t csize;
     uint32_t evsize;
     int epfd;
     int listenfd;
+    int timerfd;
     int timeout;
+    long connection_timeout;
 };
 
 struct cgi_template_engine {

@@ -19,11 +19,10 @@ extern void cgi_http_connection_init5(cgi_http_connection_t *connection,
                                       struct sockaddr *clientaddr,
                                       socklen_t clientlen);
 extern void cgi_http_connection_read(cgi_http_connection_t *connection);
-extern void cgi_http_connection_write(cgi_http_connection_t *connection,
-                                      cgi_event_dispatcher_t *dispatcher);
+extern void cgi_http_connection_write(cgi_http_connection_t *connection);
 extern LINE_STATUS cgi_http_parse_line(cgi_http_connection_t *connection);
 extern HTTP_STATUS cgi_http_parse_request_line(cgi_http_connection_t
-                                               *connection);
+        *connection);
 extern HTTP_STATUS cgi_http_parse_header(cgi_http_connection_t *connection);
 extern HTTP_STATUS cgi_http_parse_content(cgi_http_connection_t *connection);
 extern HTTP_STATUS cgi_http_process_read(cgi_http_connection_t *connection);

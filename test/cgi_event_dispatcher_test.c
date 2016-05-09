@@ -40,7 +40,7 @@ int main()
     retcode = listen(listenfd, 1024);
     assert(retcode != -1);
 
-    cgi_event_dispatcher_init(dispatcher, epfd, listenfd, -1);
+    cgi_event_dispatcher_init(dispatcher, epfd, listenfd, -1, -1);
     cgi_event_dispatcher_addpipe(dispatcher);
     cgi_event_dispatcher_addfd(dispatcher, listenfd, 1, 0);
 

@@ -1,6 +1,8 @@
 #include <sys/epoll.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 
 #include <assert.h>
@@ -21,14 +23,17 @@ int main()
     int epfd = epoll_create(512);
     assert(epfd != -1);
 
-    int listenfd = socket(AF_INET,SOCK_STREAM,0);
+    int listenfd = socket(AF_INET,SOCK_STREAM, 0);
     assert(listenfd != -1);
 
     int retcode;
     int flag = 1;
     retcode = setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR,
                          &flag, sizeof(flag));
-    assert(retcode != -1);
+    assert(retcode != -1 && "Set socket REUSEADDR");
+    retcode = setsockopt(listenfd, SOL_TCP, TCP_NODELAY,
+                         &flag, sizeof(flag));
+    assert(retcode != -1 && "Set socket NODELAY");
 
     struct sockaddr_in addr;
     memset(&addr,0,sizeof(addr));
@@ -43,7 +48,7 @@ int main()
     retcode = listen(listenfd, 1024);
     assert(retcode != -1);
 
-    cgi_event_dispatcher_init(dispatcher, epfd, listenfd, -1);
+    cgi_event_dispatcher_init(dispatcher, epfd, listenfd, -1, 2000);
     cgi_event_dispatcher_addpipe(dispatcher);
     cgi_event_dispatcher_addfd(dispatcher, listenfd, 1, 0);
 
@@ -55,6 +60,7 @@ int main()
     cgi_event_dispatcher_loop(dispatcher);
 
     cgi_event_dispatcher_rmfd(dispatcher, listenfd);
+    cgi_event_dispatcher_rmfd(dispatcher, dispatcher->timerfd);
 
     retcode = close(listenfd);
     assert(retcode != -1);
