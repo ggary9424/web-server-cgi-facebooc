@@ -10,21 +10,16 @@ extern "C"
 {
 #endif
 
-extern cgi_event_dispatcher_t *cgi_event_dispatcher_create();
-extern void cgi_event_dispatcher_init(cgi_event_dispatcher_t *dispatcher,
-                                      int epfd,int listenfd,int timeout,
-                                      long connection_timeout); //millisec
-extern void cgi_event_dispatcher_addsig(int sig);
-extern void cgi_event_dispatcher_addpipe(cgi_event_dispatcher_t *dispatcher);
-extern void cgi_event_dispatcher_addfd(cgi_event_dispatcher_t *dispatcher,
-                                       int fd, int in, int oneshot);
-extern void cgi_event_dispatcher_rmfd(cgi_event_dispatcher_t *dispatcher,
-                                      int fd);
-extern void cgi_event_dispatcher_modfd(cgi_event_dispatcher_t *dispatcher,
-                                       int fd,int ev);
-extern void cgi_event_dispatcher_set_nonblocking(int fd);
-extern void cgi_event_dispatcher_loop(cgi_event_dispatcher_t *dispatcher);
-extern void cgi_event_dispatcher_destroy(cgi_event_dispatcher_t *dispatcher);
+extern struct __DISPATCHER_API__ {
+    cgi_event_dispatcher_t * (*create)();
+    void (*init)(cgi_event_dispatcher_t *, int, int, int, long);
+    void (*addfd)(cgi_event_dispatcher_t *, int, int, int);
+    void (*rmfd)(cgi_event_dispatcher_t *, int);
+    void (*addpipe)(cgi_event_dispatcher_t *);
+    void (*addsig)(int);
+    void (*start)(cgi_event_dispatcher_t *);
+    void (*destory)(cgi_event_dispatcher_t *);
+} Dispatcher;
 
 #ifdef __cplusplus
 }

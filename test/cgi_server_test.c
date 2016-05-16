@@ -17,10 +17,10 @@
 
 int main()
 {
-    cgi_event_dispatcher_t *dispatcher = cgi_event_dispatcher_create();
+    cgi_event_dispatcher_t *dispatcher = Dispatcher.create();
     cgi_url_dltrie_t *url_dltrie = cgi_url_dltrie_default_root();
 
-    int epfd = epoll_create(512);
+    int epfd = epoll_create1(0);
     assert(epfd != -1);
 
     int listenfd = socket(AF_INET,SOCK_STREAM, 0);
@@ -48,25 +48,24 @@ int main()
     retcode = listen(listenfd, 1024);
     assert(retcode != -1);
 
-    cgi_event_dispatcher_init(dispatcher, epfd, listenfd, -1, 2000);
-    cgi_event_dispatcher_addpipe(dispatcher);
-    cgi_event_dispatcher_addfd(dispatcher, listenfd, 1, 0);
+    Dispatcher.init(dispatcher, epfd, listenfd, -1, 2000);
+    Dispatcher.addpipe(dispatcher);
+    Dispatcher.addfd(dispatcher, listenfd, 1, 0);
 
-    cgi_event_dispatcher_addsig(SIGHUP);
-    cgi_event_dispatcher_addsig(SIGCHLD);
-    cgi_event_dispatcher_addsig(SIGTERM);
-    cgi_event_dispatcher_addsig(SIGINT);
+    Dispatcher.addsig(SIGHUP);
+    Dispatcher.addsig(SIGCHLD);
+    Dispatcher.addsig(SIGTERM);
+    Dispatcher.addsig(SIGINT);
 
-    cgi_event_dispatcher_loop(dispatcher);
+    Dispatcher.start(dispatcher);
 
-    cgi_event_dispatcher_rmfd(dispatcher, listenfd);
-    cgi_event_dispatcher_rmfd(dispatcher, dispatcher->timerfd);
-
+    Dispatcher.rmfd(dispatcher, listenfd);
+    Dispatcher.rmfd(dispatcher, dispatcher->timerfd);
     retcode = close(listenfd);
     assert(retcode != -1);
     retcode = close(epfd);
     assert(retcode != -1);
 
-    cgi_event_dispatcher_destroy(dispatcher);
+    Dispatcher.destory(dispatcher);
     return 0;
 }

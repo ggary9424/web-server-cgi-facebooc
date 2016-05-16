@@ -1,14 +1,15 @@
+#include <assert.h>
+#include <errno.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <sys/epoll.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <pthread.h>
-#include <time.h>
-#include <assert.h>
-#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <signal.h>
+#include <time.h>
+#include <wait.h>
 
 #include "cgi.h"
 #include "factory/cgi_factory.h"
@@ -192,6 +193,8 @@ void cgi_event_dispatcher_loop(cgi_event_dispatcher_t *dispatcher)
                         continue;
                     switch (signum) {
                         case SIGCHLD:
+                            int pid = wait(NULL);
+                            break;
                         case SIGHUP:
                             break;
 
@@ -238,3 +241,14 @@ void cgi_event_dispatcher_destroy(cgi_event_dispatcher_t *dispatcher)
 {
     cgi_factory_destroy(dispatcher, EVENT_DISPATCHER);
 }
+
+struct __DISPATCHER_API__ Dispatcher = {
+    .create = cgi_event_dispatcher_create,
+    .init = cgi_event_dispatcher_init,
+    .addfd = cgi_event_dispatcher_addfd,
+    .rmfd = cgi_event_dispatcher_rmfd,
+    .addpipe = cgi_event_dispatcher_addpipe,
+    .addsig = cgi_event_dispatcher_addsig,
+    .start = cgi_event_dispatcher_loop,
+    .destory = cgi_event_dispatcher_destroy,
+};
