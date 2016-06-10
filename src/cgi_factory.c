@@ -124,7 +124,7 @@ void cgi_factory_destroy(void *object,CGI_OBJECT item)
             free(dispatcher->isconn);
             break;
 
-defualt:
+        default:
             break;
     }
     free(object);

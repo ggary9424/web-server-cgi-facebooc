@@ -26,10 +26,11 @@ extern HTTP_STATUS cgi_http_parse_request_line(cgi_http_connection_t
 extern HTTP_STATUS cgi_http_parse_header(cgi_http_connection_t *connection);
 extern HTTP_STATUS cgi_http_parse_content(cgi_http_connection_t *connection);
 extern HTTP_STATUS cgi_http_process_read(cgi_http_connection_t *connection);
-extern HTTP_STATUS cgi_http_process_write(cgi_http_connection_t *connection);
+extern void cgi_http_process_write(cgi_http_connection_t *connection);
 extern void cgi_http_process(cgi_http_connection_t *connection);
 extern void cgi_http_write_request_line(cgi_http_connection_t *connection,
                                         HTTP_STATUS hstatus);
+extern void cgi_http_write_file(cgi_http_connection_t *connection, char *fpath);
 extern void cgi_http_parse_param(cgi_http_connection_t *connection);
 extern void cgi_http_connection_destroy(cgi_http_connection_t *connection);
 

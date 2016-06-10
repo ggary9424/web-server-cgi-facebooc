@@ -1,23 +1,25 @@
+#include <assert.h>
+#include <fcntl.h>
+#include <inttypes.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/epoll.h>
 #include <sys/sendfile.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-#include <fcntl.h>
 
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <assert.h>
-#include <unistd.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "cgi.h"
+#include "dispatcher/cgi_event_dispatcher.h"
 #include "factory/cgi_factory.h"
 #include "http/cgi_http_parser.h"
-#include "dispatcher/cgi_event_dispatcher.h"
 #include "utils/cgi_url_dltrie.h"
 
 #include "utils/cgi_param_slist.h"
@@ -103,7 +105,7 @@ void cgi_http_connection_write(cgi_http_connection_t *connection)
     }
     cgi_http_connection_init(connection);
     if(linger == 1) {
-        cgi_event_dispatcher_modfd(dispatcher, tmpfd, EPOLLIN);
+        Dispatcher.modfd(dispatcher, tmpfd, EPOLLIN);
         clock_gettime(CLOCK_REALTIME, &connection->idle_start);
     } else {
         close(connection->sockfd);
@@ -297,7 +299,7 @@ HTTP_STATUS cgi_http_process_read(cgi_http_connection_t *connection)
     return hstatus;
 }
 
-HTTP_STATUS cgi_http_process_write(cgi_http_connection_t *connection)
+void cgi_http_process_write(cgi_http_connection_t *connection)
 {
     cgi_url_dltrie_t *url_dltrie = cgi_url_dltrie_default_root();
     cgi_handler_t handler = cgi_url_dltrie_find(url_dltrie,
@@ -390,7 +392,6 @@ void cgi_http_write_content(cgi_http_connection_t *connection, char *content)
 void cgi_http_write_file(cgi_http_connection_t *connection, char *fpath)
 {
     char buffer[CGI_NAME_BUFFER_SIZE];
-    char buffer1[1024];
     snprintf(buffer, CGI_NAME_BUFFER_SIZE - 1,
              "%s%s", CGI_WEB_ROOT, fpath);
     connection->ffd = open(buffer, O_RDONLY);
@@ -403,12 +404,12 @@ void cgi_http_write_file(cgi_http_connection_t *connection, char *fpath)
             perror("lseek");
         } else {
             snprintf(buffer, CGI_NAME_BUFFER_SIZE - 1,
-                     "%lu", connection->fsize);
+                     "%" PRIu64 , connection->fsize);
             cgi_http_write_header(connection, "Content-Length", buffer);
             if(connection->linger == 1) {
                 cgi_http_write_header(connection, "Connection", "keep-alive");
                 snprintf(buffer, CGI_NAME_BUFFER_SIZE - 1,
-                         "timeout=%lu", (int)(connection->dispatcher->connection_timeout/1000));
+                         "timeout=%" PRIu32, (connection->dispatcher->connection_timeout/1000));
                 cgi_http_write_header(connection, "Keep-Alive", buffer);
             }
             connection->wbuffer[connection->write_idx++] = '\r';
@@ -419,6 +420,7 @@ void cgi_http_write_file(cgi_http_connection_t *connection, char *fpath)
             }
             /*** Another way : write in one tcp segment ***/
             /*
+            char buffer1[1024];
             int numbytes;
             while((numbytes = read(connection->ffd, buffer1, 1024)) > 0){
             	    connection->write_idx += snprintf(connection->wbuffer + connection->write_idx,

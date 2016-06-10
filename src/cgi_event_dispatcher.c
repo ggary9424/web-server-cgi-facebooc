@@ -2,26 +2,33 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
-#include <sys/epoll.h>
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <stdio.h>
 #include <string.h>
 #include <signal.h>
 #include <time.h>
+#include <unistd.h>
 #include <wait.h>
 
+#include <sys/epoll.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/timerfd.h>
+
 #include "cgi.h"
+#include "async/cgi_async.h"
+#include "dispatcher/cgi_event_dispatcher.h"
 #include "factory/cgi_factory.h"
 #include "http/cgi_http_parser.h"
-#include "dispatcher/cgi_event_dispatcher.h"
-#include "async/cgi_async.h"
 
 static pthread_mutex_t mlock = PTHREAD_MUTEX_INITIALIZER;
 static int usable = 0;
 static int pipefd[2];
 
 static void cgi_event_dispatcher_signal_handler(int sig);
+void cgi_event_dispatcher_addtimer(cgi_event_dispatcher_t *, long);
+void cgi_event_dispatcher_set_nonblocking(int);
+void cgi_event_dispatcher_addfd(cgi_event_dispatcher_t *, int, int, int);
+void cgi_event_dispatcher_modfd(cgi_event_dispatcher_t *, int, int);
 
 cgi_event_dispatcher_t *cgi_event_dispatcher_create()
 {
@@ -191,9 +198,13 @@ void cgi_event_dispatcher_loop(cgi_event_dispatcher_t *dispatcher)
                     retcode = recv(pipefd[0], &signum, sizeof(signum), 0);
                     if (retcode <= 0)
                         continue;
+                    pid_t pid = 0;
+                    int status = 0, s = 0;					
                     switch (signum) {
                         case SIGCHLD:
-                            int pid = wait(NULL);
+                            pid = wait(&status);
+                            s = WEXITSTATUS(status);
+                            printf("child's pid =%d :  exit status=%d\n", pid, s);
                             break;
                         case SIGHUP:
                             break;
@@ -209,7 +220,7 @@ void cgi_event_dispatcher_loop(cgi_event_dispatcher_t *dispatcher)
                     continue;
                 }
                 cgi_http_connection_read(dispatcher->connections + tmpfd);
-                Async.run(dispatcher->async, cgi_http_process, dispatcher->connections + tmpfd);
+                Async.run(dispatcher->async, (void(*)(void*))cgi_http_process, dispatcher->connections + tmpfd);
             } else {
                 printf("Error!");
             }
@@ -246,9 +257,10 @@ struct __DISPATCHER_API__ Dispatcher = {
     .create = cgi_event_dispatcher_create,
     .init = cgi_event_dispatcher_init,
     .addfd = cgi_event_dispatcher_addfd,
+    .modfd = cgi_event_dispatcher_modfd,
     .rmfd = cgi_event_dispatcher_rmfd,
     .addpipe = cgi_event_dispatcher_addpipe,
     .addsig = cgi_event_dispatcher_addsig,
     .start = cgi_event_dispatcher_loop,
-    .destory = cgi_event_dispatcher_destroy,
+    .destroy = cgi_event_dispatcher_destroy,
 };

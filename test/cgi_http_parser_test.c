@@ -43,7 +43,6 @@ int main(int argc,char **argv)
     char buffer[1024];
 
     char *rbuffer = connection->rbuffer;
-    uint32_t rdsize;
     FILE *fp = fopen(argv[1], "r");
     while (fgets(buffer, 1024, fp)) {
         uint32_t rdsize = strlen(buffer) - 1;
@@ -53,7 +52,7 @@ int main(int argc,char **argv)
         rbuffer[connection->read_idx++] = '\n';
     }
 
-    LINE_STATUS lstatus = cgi_http_parse_line(connection);
+    cgi_http_parse_line(connection);
     HTTP_STATUS hstatus = cgi_http_parse_request_line(connection);
 
     switch (hstatus) {
@@ -76,7 +75,7 @@ int main(int argc,char **argv)
     }
 
     while(connection->cstatus == CHECK_HEADER) {
-        lstatus = cgi_http_parse_line(connection);
+        cgi_http_parse_line(connection);
         printf("Checking Header.\n");
         hstatus = cgi_http_parse_header(connection);
         if (hstatus != CHECKING) {

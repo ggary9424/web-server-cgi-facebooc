@@ -66,7 +66,8 @@ $(WEBPATH)/%.so: web/src/%.c
 	$(CC) $(CFLAGS) -I web/include -fPIC -shared -nostartfiles \
 		$< -o $@ \
 		src/cgi_factory.c src/cgi_http_parser.c \
-		src/cgi_param_slist.c src/cgi_async.c
+		src/cgi_param_slist.c src/cgi_async.c \
+		src/cgi_event_dispatcher.c
 
 $(WEBPATH):
 	@mkdir -p $@

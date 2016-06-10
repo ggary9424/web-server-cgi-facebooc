@@ -46,7 +46,7 @@ enum CGI_OBJECT {
     PARAM_SLIST,
     URL_DLTRIE,
     EVENT_DISPATCHER,
-    ASYNC
+    ASYNC,
 };
 
 enum LINE_STATUS {
@@ -137,7 +137,7 @@ struct cgi_event_dispatcher {
     int listenfd;
     int timerfd;
     int timeout;
-    long connection_timeout;
+    uint32_t connection_timeout;
 };
 
 struct cgi_template_engine {

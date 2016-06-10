@@ -18,7 +18,7 @@
 int main()
 {
     cgi_event_dispatcher_t *dispatcher = Dispatcher.create();
-    cgi_url_dltrie_t *url_dltrie = cgi_url_dltrie_default_root();
+    cgi_url_dltrie_default_root();
 
     int epfd = epoll_create1(0);
     assert(epfd != -1);
@@ -66,6 +66,6 @@ int main()
     retcode = close(epfd);
     assert(retcode != -1);
 
-    Dispatcher.destory(dispatcher);
+    Dispatcher.destroy(dispatcher);
     return 0;
 }

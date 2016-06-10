@@ -66,7 +66,6 @@ void cgi_url_dltrie_init(cgi_url_dltrie_t **head_ptr)
     char absolute_path[PATH_MAX];
     char *so_path; //shared object path
     void *dlhandle = NULL;
-    char *errstr;
 
     realpath("../", absolute_path);
     so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "web_index" SUFFIX);
