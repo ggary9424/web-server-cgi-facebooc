@@ -2,33 +2,108 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <signal.h>
 #include <stdio.h>
 #include <string.h>
-#include <signal.h>
 #include <time.h>
 #include <unistd.h>
 #include <wait.h>
 
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <sys/epoll.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/timerfd.h>
 
 #include "cgi.h"
 #include "async/cgi_async.h"
+#include "db/db.h"
 #include "dispatcher/cgi_event_dispatcher.h"
 #include "factory/cgi_factory.h"
-#include "http/cgi_http_parser.h"
+#include "kv/kv.h"
+#include "models/account.h"
+#include "utils/cgi_url_dltrie.h"
+
+#define GET_TIME                                  \
+    time_t t = time(NULL);                        \
+    char timebuff[100];                           \
+    strftime(timebuff, sizeof(timebuff),          \
+             "%c", localtime(&t));
+
+#define LOG_400(addr)                             \
+    do {                                          \
+        GET_TIME;                                 \
+        fprintf(stdout,                           \
+                "%s %s 400\n",                    \
+                timebuff,                         \
+                inet_ntoa(addr->sin_addr));       \
+    } while (0)
+
+#define LOG_REQUEST(addr, method, path, status)   \
+    do {                                          \
+        GET_TIME;                                 \
+        fprintf(stdout,                           \
+                "%s %s %s %s %d\n",               \
+                timebuff,                         \
+                inet_ntoa(addr->sin_addr),        \
+                method,                           \
+                path,                             \
+                status);                          \
+    } while (0)
+
+char *METHODS[8] = {
+    "OPTIONS", "GET", "HEAD", "POST", "PUT", "DELETE", "TRACE", "CONNECT"
+};
 
 static pthread_mutex_t mlock = PTHREAD_MUTEX_INITIALIZER;
 static int usable = 0;
 static int pipefd[2];
 
+void cgi_http_connection_init(cgi_http_connection_t *connection);
+void cgi_http_connection_init5(cgi_http_connection_t *connection,
+                               cgi_event_dispatcher_t *dispatcher,int sockfd,
+                               struct sockaddr_in *clientaddr,socklen_t clientlen);
 static void cgi_event_dispatcher_signal_handler(int sig);
 void cgi_event_dispatcher_addtimer(cgi_event_dispatcher_t *, long);
 void cgi_event_dispatcher_set_nonblocking(int);
 void cgi_event_dispatcher_addfd(cgi_event_dispatcher_t *, int, int, int);
 void cgi_event_dispatcher_modfd(cgi_event_dispatcher_t *, int, int);
+
+void cgi_http_connection_init(cgi_http_connection_t *connection)
+{
+    if (connection->rsize == 0)
+        connection->rbuffer = NULL;
+    if (connection->wsize == 0)
+        connection->wbuffer = NULL;
+    connection->version = NULL;
+    connection->url = NULL;
+    connection->cookie = NULL;
+    connection->content = NULL;
+    connection->head = NULL;
+    connection->read_idx = 0;
+    connection->write_idx = 0;
+    connection->checked_idx = 0;
+    connection->start_line_idx = 0;
+    connection->content_length = 0;
+    connection->linger = 0;
+    connection->fsize = -1;
+    connection->ffd = -1;
+    connection->idle_start.tv_sec = 0;
+    connection->idle_start.tv_nsec = 0.0;
+}
+
+void cgi_http_connection_init5(cgi_http_connection_t *connection,
+                               cgi_event_dispatcher_t *dispatcher,int sockfd,
+                               struct sockaddr_in *clientaddr,socklen_t clientlen)
+{
+    cgi_http_connection_init(connection);
+    connection->dispatcher = dispatcher;
+    connection->sockfd = sockfd;
+    connection->clientlen = clientlen;
+    memcpy(&(connection->clientaddr),clientaddr,clientlen);
+}
 
 cgi_event_dispatcher_t *cgi_event_dispatcher_create()
 {
@@ -40,6 +115,7 @@ cgi_event_dispatcher_t *cgi_event_dispatcher_create()
 void cgi_event_dispatcher_init(cgi_event_dispatcher_t *dispatcher,
                                int epfd, int listenfd, int timeout, long connection_timeout)
 {
+	initDB(&dispatcher->db);
     dispatcher->epfd = epfd;
     dispatcher->listenfd = listenfd;
     dispatcher->timeout = timeout;
@@ -152,6 +228,74 @@ void cgi_event_dispatcher_set_nonblocking(int fd)
         perror("fcntl");
 }
 
+static void session(Request *req, sqlite3 *db)
+{
+    char *sid = kvFindList(req->cookies, "sid");
+
+    if (sid)
+        req->account = accountGetBySId(db, sid);
+}
+
+static void handle(void *__connection)
+{
+	cgi_http_connection_t *connection = (cgi_http_connection_t *)__connection;
+    int  nread;
+    char buff[20480];
+	struct sockaddr_in * addr = &(connection->clientaddr);
+
+    if ((nread = recv(connection->sockfd, buff, sizeof(buff), 0)) < 0) {
+        fprintf(stderr, "error: read failed\n");
+    } else if (nread > 0) {
+        buff[nread] = '\0';
+
+        Request *req = requestNew(buff);
+
+        if (!req) {
+            send(connection->sockfd, "HTTP/1.0 400 Bad Request\r\n\r\nBad Request", 39, 0);
+            LOG_400(addr);
+        } else {
+            Response *response = NULL;
+            session(req, connection->dispatcher->db);
+            /*check keep-alive*/
+            char *tmp;
+            if ((tmp = kvFindList(req->headers, "Connection"))) {
+                if(strcmp(tmp, "Keep-Alive") == 0) {
+					connection->linger = 1;
+                    printf("keep-alive\n");
+				}
+            }
+			
+			if (!response) {
+				cgi_url_dltrie_t *url_dltrie = cgi_url_dltrie_default_root();
+                cgi_handler_t handler = NULL;
+				cgi_url_dltrie_find(url_dltrie, req->uri, &handler);
+				handler(req, &response, connection->dispatcher->db);
+            }
+
+            if (!response) {
+                send(connection->sockfd, "HTTP/1.0 404 Not Found\r\n\r\nNot Found!", 36, 0);
+                LOG_REQUEST(addr, METHODS[req->method], req->path, 404);
+            } else {
+                LOG_REQUEST(addr, METHODS[req->method], req->path,
+                            response->status);
+
+                responseWrite(response, connection->sockfd);
+                responseDel(response);
+            }
+
+            requestDel(req);
+        }
+    }
+    //cgi_event_dispatcher_rmfd(server->epollfd, connection->sockfd);
+    if(connection->linger == 1) {
+        Dispatcher.modfd(connection->dispatcher, connection->sockfd, EPOLLIN);
+        clock_gettime(CLOCK_REALTIME, &connection->idle_start);
+    } else {
+        close(connection->sockfd);
+        connection->dispatcher->isconn[connection->sockfd] = 0;
+    }
+}
+
 void cgi_event_dispatcher_loop(cgi_event_dispatcher_t *dispatcher)
 {
     int stop = 0;
@@ -163,7 +307,7 @@ void cgi_event_dispatcher_loop(cgi_event_dispatcher_t *dispatcher)
     long interval = 0.0;
     struct timespec current_time;
     struct epoll_event event;
-    struct sockaddr clientaddr;
+    struct sockaddr_in clientaddr;
     socklen_t clientlen;
     char signum;
 
@@ -177,7 +321,7 @@ void cgi_event_dispatcher_loop(cgi_event_dispatcher_t *dispatcher)
             event = dispatcher->events[i];
             tmpfd = event.data.fd;
             if (tmpfd == dispatcher->listenfd) {
-                while ((cfd = accept(tmpfd, &clientaddr, &clientlen)) > 0) {
+                while ((cfd = accept(tmpfd, (struct sockaddr*)&clientaddr, &clientlen)) > 0) {
                     cgi_event_dispatcher_addfd(dispatcher, cfd, 1, 1);
                     cgi_http_connection_init5(dispatcher->connections + cfd,
                                               dispatcher,
@@ -219,8 +363,7 @@ void cgi_event_dispatcher_loop(cgi_event_dispatcher_t *dispatcher)
                     }
                     continue;
                 }
-                cgi_http_connection_read(dispatcher->connections + tmpfd);
-                Async.run(dispatcher->async, (void(*)(void*))cgi_http_process, dispatcher->connections + tmpfd);
+                Async.run(dispatcher->async, (void (*)(void *))handle, (void *)(dispatcher->connections + tmpfd));
             } else {
                 printf("Error!");
             }

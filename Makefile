@@ -1,46 +1,62 @@
 EXECPATH = bin
 OBJPATH = obj
 WEBPATH = web/plugins
+
+ifeq ($(strip $(T)),1)
+CC = mipsel-openwrt-linux-gcc 
+LDFLAGS = -lpthread -ldl
+SQOBJS = sqlite3.o
+else
 CC ?= gcc
+LDFLAGS = -lpthread -ldl -lsqlite3
+endif
 
 CFLAGS = -std=gnu99 -Wall -g -I include
-LDFLAGS = -lpthread -ldl
 
 EXEC = \
-	cgi_slist_test \
-	cgi_param_slist_test \
-	cgi_http_parser_test \
-	cgi_url_dltrie_test \
-	cgi_event_dispatcher_test \
 	cgi_server_test
 EXEC := $(addprefix $(EXECPATH)/,$(EXEC))
 
 OBJS = \
 	cgi_factory.o \
-	cgi_http_parser.o \
 	cgi_param_slist.o \
 	cgi_url_dltrie.o \
 	cgi_event_dispatcher.o \
-	cgi_async.o
+	cgi_async.o \
+	bs.o \
+	db.o \
+	kv.o \
+	list.o \
+	request.o \
+	response.o \
+	template.o \
+	models/like.o \
+	models/account.o \
+	models/connection.o \
+	models/session.o \
+	models/post.o 
+ifeq ($(strip $(T)),1)
+OBJS += $(SQOBJS)
+endif
 OBJS := $(addprefix $(OBJPATH)/,$(OBJS))
 
-TESTOBJS = \
-	cgi_slist_test.o \
-	cgi_param_slist_test.o \
-	cgi_http_parser_test.o \
-	cgi_url_dltrie_test.o \
-	cgi_event_dispatcher_test.o 
-TESTOBJS := $(addprefix $(OBJPATH)/,$(TESTOBJS))
-
 PLUGINS = \
-	default \
-	index \
+	about \
+	connect \
+	dashboard \
+	home \
+	like \
+	login \
+	logout \
+	notFound \
+	post \
+	profile \
+	search \
 	signup \
-	verify_signup \
-	error \
-	signin \
-	verify_signin
-PLUGINS := $(addprefix $(WEBPATH)/web_,$(PLUGINS))
+	static_handle \
+	unlike 
+
+PLUGINS := $(addprefix $(WEBPATH)/,$(PLUGINS))
 PLUGINS := $(addsuffix .so,$(PLUGINS))
 
 all: $(OBJPATH) $(OBJS) $(TESTOBJS) \
@@ -57,17 +73,14 @@ $(OBJPATH)/%.o: test/%.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(OBJPATH)/%.o: src/%.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) -c -fPIC -o $@ $<
 
 $(OBJPATH):
-	@mkdir -p $@
+	@mkdir -p $@ $@/models
 
 $(WEBPATH)/%.so: web/src/%.c
 	$(CC) $(CFLAGS) -I web/include -fPIC -shared -nostartfiles \
-		$< -o $@ \
-		src/cgi_factory.c src/cgi_http_parser.c \
-		src/cgi_param_slist.c src/cgi_async.c \
-		src/cgi_event_dispatcher.c
+		$(OBJS) -o $@ $<
 
 $(WEBPATH):
 	@mkdir -p $@

@@ -1,11 +1,10 @@
-#include <sys/epoll.h>
-
 #include <stdint.h>
 #include <stdlib.h>
+#include <sys/epoll.h>
 
 #include "cgi.h"
-#include "factory/cgi_factory.h"
 #include "async/cgi_async.h"
+#include "factory/cgi_factory.h"
 #include "utils/cgi_dltrie.h"
 
 void *cgi_factory_create(CGI_OBJECT item)

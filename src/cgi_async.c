@@ -1,9 +1,9 @@
+#include <fcntl.h>
+#include <pthread.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <signal.h>
 #include <unistd.h>
-#include <pthread.h>
-#include <fcntl.h>
 
 #include "async/cgi_async.h"
 

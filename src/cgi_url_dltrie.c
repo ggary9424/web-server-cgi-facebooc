@@ -68,47 +68,83 @@ void cgi_url_dltrie_init(cgi_url_dltrie_t **head_ptr)
     void *dlhandle = NULL;
 
     realpath("../", absolute_path);
-    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "web_index" SUFFIX);
+    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "home" SUFFIX);
     dlhandle = mydlopen(so_path);
     cgi_url_dltrie_insert(head_ptr, "/",
                           dlsym(dlhandle, "do_response"), dlhandle);
-    cgi_url_dltrie_insert(head_ptr, "/index.html",
+
+    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "dashboard" SUFFIX);
+    dlhandle = mydlopen(so_path);
+    cgi_url_dltrie_insert(head_ptr, "/dashboard",
                           dlsym(dlhandle, "do_response"), dlhandle);
 
-    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "web_error" SUFFIX);
+    so_path =mystrcat(absolute_path, WEB_PLUGIN_DIR "profile" SUFFIX);
     dlhandle = mydlopen(so_path);
-    cgi_url_dltrie_insert(head_ptr, "/error.html",
+    cgi_url_dltrie_insert(head_ptr, "/profile",
                           dlsym(dlhandle, "do_response"), dlhandle);
 
-    so_path =mystrcat(absolute_path, WEB_PLUGIN_DIR "web_signin" SUFFIX);
+    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "unlike" SUFFIX);
     dlhandle = mydlopen(so_path);
-    cgi_url_dltrie_insert(head_ptr, "/signIn.html",
+    cgi_url_dltrie_insert(head_ptr, "/unlike",
                           dlsym(dlhandle, "do_response"), dlhandle);
 
-    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "web_signup" SUFFIX);
+    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "like" SUFFIX);
     dlhandle = mydlopen(so_path);
-    cgi_url_dltrie_insert(head_ptr, "/signUp.html",
+    cgi_url_dltrie_insert(head_ptr, "/like",
                           dlsym(dlhandle, "do_response"), dlhandle);
 
-    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "web_verify_signin" SUFFIX);
+    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "connect" SUFFIX);
     dlhandle = mydlopen(so_path);
-    cgi_url_dltrie_insert(head_ptr, "/verifySignIn",
+    cgi_url_dltrie_insert(head_ptr, "/connect",
                           dlsym(dlhandle, "do_response"), dlhandle);
 
-    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "web_verify_signup" SUFFIX);
+    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "search" SUFFIX);
     dlhandle = mydlopen(so_path);
-    cgi_url_dltrie_insert(head_ptr, "/verifySignUp",
+    cgi_url_dltrie_insert(head_ptr, "/search",
                           dlsym(dlhandle, "do_response"), dlhandle);
 
-    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "web_default" SUFFIX);
+    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "login" SUFFIX);
     dlhandle = mydlopen(so_path);
+    cgi_url_dltrie_insert(head_ptr, "/login",
+                          dlsym(dlhandle, "do_response"), dlhandle);
+
+    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "logout" SUFFIX);
+    dlhandle = mydlopen(so_path);
+    cgi_url_dltrie_insert(head_ptr, "/logout",
+                          dlsym(dlhandle, "do_response"), dlhandle);
+
+    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "signup" SUFFIX);
+    dlhandle = mydlopen(so_path);
+    cgi_url_dltrie_insert(head_ptr, "/signup",
+                          dlsym(dlhandle, "do_response"), dlhandle);
+
+    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "search" SUFFIX);
+    dlhandle = mydlopen(so_path);
+    cgi_url_dltrie_insert(head_ptr, "/search",
+                          dlsym(dlhandle, "do_response"), dlhandle);
+
+    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "notFound" SUFFIX);
+    dlhandle = mydlopen(so_path);
+    cgi_url_dltrie_insert(head_ptr, "/notFound",
+                          dlsym(dlhandle, "do_response"), dlhandle);
+
+    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "post" SUFFIX);
+    dlhandle = mydlopen(so_path);
+    cgi_url_dltrie_insert(head_ptr, "/post",
+                          dlsym(dlhandle, "do_response"), dlhandle);
+
+    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "profile" SUFFIX);
+    dlhandle = mydlopen(so_path);
+    cgi_url_dltrie_insert(head_ptr, "/profile",
+                          dlsym(dlhandle, "do_response"), dlhandle);
+
+    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "static_handle" SUFFIX);
+    dlhandle = mydlopen(so_path);
+    cgi_url_dltrie_insert(head_ptr, "/css/normalize.css",
+                          dlsym(dlhandle, "do_response"), dlhandle);
+    cgi_url_dltrie_insert(head_ptr, "/css/main.css",
+                          dlsym(dlhandle, "do_response"), dlhandle);
     cgi_url_dltrie_insert(head_ptr, "/favicon.ico",
-                          dlsym(dlhandle, "do_response"), dlhandle);
-    cgi_url_dltrie_insert(head_ptr, "/css/index.css",
-                          dlsym(dlhandle, "do_response"), dlhandle);
-    cgi_url_dltrie_insert(head_ptr, "/css/reset.css",
-                          dlsym(dlhandle, "do_response"), dlhandle);
-    cgi_url_dltrie_insert(head_ptr, "/js/signUp.js",
                           dlsym(dlhandle, "do_response"), dlhandle);
     // FIXME: call dlclose()
 }
@@ -153,11 +189,10 @@ void cgi_url_dltrie_insert(cgi_url_dltrie_t **head_ptr, char *url,
     }
 }
 
-cgi_handler_t cgi_url_dltrie_find(cgi_url_dltrie_t *head,char *url)
+void cgi_url_dltrie_find(cgi_url_dltrie_t *head,char *url, cgi_handler_t *_handler)
 {
     char *scanner = NULL;
     uint32_t diff;
-    cgi_handler_t handler = NULL;
     while (1) {
         scanner = cgi_url_strpbrk(url);
         diff = scanner - url;
@@ -168,13 +203,13 @@ cgi_handler_t cgi_url_dltrie_find(cgi_url_dltrie_t *head,char *url)
             continue;
         }
         if (*scanner == '\0') {
-            handler = head->handler;
+            *_handler  = head->handler;
             break;
         }
         head = CGI_DLTRIE_CHILD(head, linker);
         url = scanner;
     }
-    return handler;
+    return;
 }
 
 void cgi_url_dltrie_delete(cgi_url_dltrie_t *elem)

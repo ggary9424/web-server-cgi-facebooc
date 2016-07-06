@@ -1,0 +1,64 @@
+{%include ../web/public/html/header.html%}
+<form action="" method="POST" id="main-form" role="form">
+    <div class="title">Sign Up</div>
+    <div class="form-group">
+        <label for="username">
+            Name
+        </label>
+        <input type="text"
+               class="form-control"
+               id="name"
+               name="name"
+               value="{{formName}}" />
+        <div class="alert">{{nameError}}</div>
+    </div>
+
+    <div class="form-group">
+        <label for="email">
+            Email
+        </label>
+        <input type="text"
+               class="form-control"
+               id="email"
+               name="email"
+               value="{{formEmail}}" />
+        <div class="alert">{{emailError}}</div>
+    </div>
+
+    <div class="form-group">
+        <label for="username">
+            Username
+        </label>
+        <input type="text"
+               class="form-control"
+               id="username"
+               name="username"
+               value="{{formUsername}}" />
+        <div class="alert">{{usernameError}}</div>
+    </div>
+
+    <div class="form-group">
+        <label for="password">
+            Password
+        </label>
+        <input type="password"
+               class="form-control"
+               id="password"
+               name="password" />
+        <div class="alert">{{passwordError}}</div>
+    </div>
+
+    <div class="form-group">
+        <label for="confirm-password">
+            Confirm password
+        </label>
+        <input type="password"
+               class="form-control"
+               id="confirm-password"
+               name="confirm-password" />
+        <div class="alert">{{confirmPasswordError}}</div>
+    </div>
+
+    <input class="btn btn-default" type="submit" value="Submit"/>
+</form>
+{%include ../web/public/html/footer.html%}

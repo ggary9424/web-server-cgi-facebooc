@@ -1,6 +1,13 @@
 #include <assert.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <unistd.h>
+
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sys/types.h>
@@ -9,19 +16,11 @@
 #include <sys/epoll.h>
 #include <sys/sendfile.h>
 
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
-#include <unistd.h>
-
 #include "cgi.h"
 #include "dispatcher/cgi_event_dispatcher.h"
 #include "factory/cgi_factory.h"
 #include "http/cgi_http_parser.h"
 #include "utils/cgi_url_dltrie.h"
-
 #include "utils/cgi_param_slist.h"
 
 static HTTP_STATUS cgi_http_parse_method(cgi_http_connection_t *connection);
@@ -312,6 +311,7 @@ void cgi_http_process_write(cgi_http_connection_t *connection)
 
 void cgi_http_process(cgi_http_connection_t *connection)
 {
+    cgi_http_connection_read(connection);
     HTTP_STATUS hstatus = cgi_http_process_read(connection);
     if (hstatus == BAD_REQUEST) {
         cgi_url_dltrie_t *url_dltrie = cgi_url_dltrie_default_root();

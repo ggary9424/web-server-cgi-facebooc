@@ -2,24 +2,30 @@
 #define CGI_H
 
 #include <time.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <stdint.h>
+
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <sys/epoll.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <pthread.h>
-#include <semaphore.h>
 
-#include <stdint.h>
+#include "sqlite3.h"
 
 #include "async/cgi_async.h"
 #include "utils/cgi_slist.h"
 #include "utils/cgi_dltrie.h"
+#include "request/request.h"
+#include "response/response.h"
 
 #define CGI_HTTP_CONNECTION_READ_BUFFER_SIZE 4096
 #define CGI_HTTP_CONNECTION_WRITE_BUFFER_SIZE 4096
 #define CGI_URL_DLTRIE_KEY_SIZE 32
 #define CGI_CONNECTION_SIZE 1024
 #define CGI_EVENT_SIZE	64
-#define CGI_THREAD_POOL_SIZE 16
+#define CGI_THREAD_POOL_SIZE 1
 #define CGI_NAME_BUFFER_SIZE 128
 #define CGI_FILE_BUFFER_SIZE 4096
 
@@ -39,16 +45,18 @@ typedef struct cgi_url_dltrie cgi_url_dltrie_t;
 typedef struct cgi_event_dispatcher cgi_event_dispatcher_t;
 typedef struct cgi_template_engine cgi_template_engine_t;
 
-typedef void (*cgi_handler_t)(cgi_http_connection_t*);
+typedef void (*cgi_handler_t)(Request *, Response **, sqlite3 *db);
+
+sqlite3 *DB;
 
 enum CGI_OBJECT {
     HTTP_CONNECTION,
     PARAM_SLIST,
     URL_DLTRIE,
     EVENT_DISPATCHER,
-    ASYNC,
+    ASYNC
 };
-
+/*
 enum LINE_STATUS {
     LINE_OPEN,
     LINE_OK,
@@ -84,7 +92,7 @@ enum HTTP_METHOD {
     CONNECT,
     PATCH
 };
-
+*/
 struct cgi_http_connection {
     cgi_event_dispatcher_t *dispatcher;
     char *rbuffer;
@@ -102,12 +110,12 @@ struct cgi_http_connection {
     uint32_t start_line_idx;
     uint32_t content_length;
     int linger;
-    HTTP_METHOD method;
-    CHECK_STATUS cstatus;
+    //HTTP_METHOD method;
+    //CHECK_STATUS cstatus;
     uint64_t fsize;
     int ffd;
     int sockfd;
-    struct sockaddr clientaddr;
+    struct sockaddr_in clientaddr;
     socklen_t clientlen;
     struct timespec idle_start;
 };
@@ -120,7 +128,7 @@ struct cgi_param_slist {
 
 struct cgi_url_dltrie {
     char *key;
-    cgi_handler_t handler;
+	cgi_handler_t handler;
     void *dlhandle;
     uint32_t ksize;
     CGI_DLTRIE_ENTRY(cgi_url_dltrie_t) linker;
@@ -128,16 +136,17 @@ struct cgi_url_dltrie {
 
 struct cgi_event_dispatcher {
     cgi_http_connection_t *connections;
+	sqlite3 *db;
     char *isconn;
     async_p async;
     struct epoll_event *events;
+	long connection_timeout;
     uint32_t csize;
     uint32_t evsize;
     int epfd;
     int listenfd;
     int timerfd;
     int timeout;
-    uint32_t connection_timeout;
 };
 
 struct cgi_template_engine {
