@@ -1,3 +1,4 @@
+#include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -59,93 +60,10 @@ void *mydlopen(char *path)
     return dlhandle;
 }
 
-#define WEB_PLUGIN_DIR "/web/plugins/"
-#define SUFFIX ".so"
 void cgi_url_dltrie_init(cgi_url_dltrie_t **head_ptr)
 {
-    char absolute_path[PATH_MAX];
-    char *so_path; //shared object path
-    void *dlhandle = NULL;
+    cgi_url_dltrie_load(head_ptr, "route.conf");
 
-    realpath("../", absolute_path);
-    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "home" SUFFIX);
-    dlhandle = mydlopen(so_path);
-    cgi_url_dltrie_insert(head_ptr, "/",
-                          dlsym(dlhandle, "do_response"), dlhandle);
-
-    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "dashboard" SUFFIX);
-    dlhandle = mydlopen(so_path);
-    cgi_url_dltrie_insert(head_ptr, "/dashboard",
-                          dlsym(dlhandle, "do_response"), dlhandle);
-
-    so_path =mystrcat(absolute_path, WEB_PLUGIN_DIR "profile" SUFFIX);
-    dlhandle = mydlopen(so_path);
-    cgi_url_dltrie_insert(head_ptr, "/profile",
-                          dlsym(dlhandle, "do_response"), dlhandle);
-
-    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "unlike" SUFFIX);
-    dlhandle = mydlopen(so_path);
-    cgi_url_dltrie_insert(head_ptr, "/unlike",
-                          dlsym(dlhandle, "do_response"), dlhandle);
-
-    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "like" SUFFIX);
-    dlhandle = mydlopen(so_path);
-    cgi_url_dltrie_insert(head_ptr, "/like",
-                          dlsym(dlhandle, "do_response"), dlhandle);
-
-    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "connect" SUFFIX);
-    dlhandle = mydlopen(so_path);
-    cgi_url_dltrie_insert(head_ptr, "/connect",
-                          dlsym(dlhandle, "do_response"), dlhandle);
-
-    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "search" SUFFIX);
-    dlhandle = mydlopen(so_path);
-    cgi_url_dltrie_insert(head_ptr, "/search",
-                          dlsym(dlhandle, "do_response"), dlhandle);
-
-    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "login" SUFFIX);
-    dlhandle = mydlopen(so_path);
-    cgi_url_dltrie_insert(head_ptr, "/login",
-                          dlsym(dlhandle, "do_response"), dlhandle);
-
-    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "logout" SUFFIX);
-    dlhandle = mydlopen(so_path);
-    cgi_url_dltrie_insert(head_ptr, "/logout",
-                          dlsym(dlhandle, "do_response"), dlhandle);
-
-    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "signup" SUFFIX);
-    dlhandle = mydlopen(so_path);
-    cgi_url_dltrie_insert(head_ptr, "/signup",
-                          dlsym(dlhandle, "do_response"), dlhandle);
-
-    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "search" SUFFIX);
-    dlhandle = mydlopen(so_path);
-    cgi_url_dltrie_insert(head_ptr, "/search",
-                          dlsym(dlhandle, "do_response"), dlhandle);
-
-    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "notFound" SUFFIX);
-    dlhandle = mydlopen(so_path);
-    cgi_url_dltrie_insert(head_ptr, "/notFound",
-                          dlsym(dlhandle, "do_response"), dlhandle);
-
-    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "post" SUFFIX);
-    dlhandle = mydlopen(so_path);
-    cgi_url_dltrie_insert(head_ptr, "/post",
-                          dlsym(dlhandle, "do_response"), dlhandle);
-
-    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "profile" SUFFIX);
-    dlhandle = mydlopen(so_path);
-    cgi_url_dltrie_insert(head_ptr, "/profile",
-                          dlsym(dlhandle, "do_response"), dlhandle);
-
-    so_path = mystrcat(absolute_path, WEB_PLUGIN_DIR "static_handle" SUFFIX);
-    dlhandle = mydlopen(so_path);
-    cgi_url_dltrie_insert(head_ptr, "/css/normalize.css",
-                          dlsym(dlhandle, "do_response"), dlhandle);
-    cgi_url_dltrie_insert(head_ptr, "/css/main.css",
-                          dlsym(dlhandle, "do_response"), dlhandle);
-    cgi_url_dltrie_insert(head_ptr, "/favicon.ico",
-                          dlsym(dlhandle, "do_response"), dlhandle);
     // FIXME: call dlclose()
 }
 
@@ -187,6 +105,42 @@ void cgi_url_dltrie_insert(cgi_url_dltrie_t **head_ptr, char *url,
         head_ptr = &CGI_DLTRIE_CHILD(head, linker);
         url = scanner;
     }
+}
+
+void cgi_url_dltrie_load(cgi_url_dltrie_t **head_ptr, char *filename) {
+    char *file_path = mystrcat(CGI_WEB_ROOT, filename);
+    char stmp[100] = "";
+    char *url = "";
+    char *so_file = ""; //shared object name, jsut name
+    char so_path[128] = ""; //shared object path
+    void *dlhandle = NULL;
+
+    FILE * fptr = fopen(file_path, "r");
+
+    if (!fptr) {
+        perror ("Error opening file");
+        exit(1);
+    }
+    while (fgets(stmp, 100, fptr) != NULL) {
+        so_file = stmp;
+        while (*so_file != ' ')
+            ++so_file;
+        *so_file = '\0';
+        ++so_file;
+        url = stmp;
+        so_file[strlen(so_file) - 1] = '\0';
+        memset(so_path, 0, sizeof(so_path));
+        strcat(so_path, CGI_WEB_PLUGIN_DIR);
+        strcat(so_path, so_file);
+        strcat(so_path, SUFFIX);
+
+        dlhandle = mydlopen(so_path);
+        cgi_url_dltrie_insert(head_ptr, url,
+                              dlsym(dlhandle, "do_response"), dlhandle);
+    }
+
+    fclose(fptr);
+    free(file_path);
 }
 
 void cgi_url_dltrie_find(cgi_url_dltrie_t *head,char *url, cgi_handler_t *_handler)

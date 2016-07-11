@@ -12,6 +12,7 @@
 
 void do_response(Request *req, Response ** res, sqlite3 *db)
 {
+    if (!req->account) return;
     if (req->method != POST) return;
 
 	char *postStr = kvFindList(req->postBody, "post");

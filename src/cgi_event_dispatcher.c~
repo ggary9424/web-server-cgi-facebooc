@@ -363,7 +363,7 @@ void cgi_event_dispatcher_loop(cgi_event_dispatcher_t *dispatcher)
                             break;
                         case SIGHUP:
                             printf("SIGHUP received.\n");
-                            cgi_url_dltrie_t *url_dltrie = cgi_url_dltrie_default_root();
+				            cgi_url_dltrie_t *url_dltrie = cgi_url_dltrie_default_root();
                             cgi_url_dltrie_load(&url_dltrie, "route.conf");
                             break;
 

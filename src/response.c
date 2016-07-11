@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
+#include "cgi.h"
 #include "bs/bs.h"
 #include "kv/kv.h"
 #include "response/response.h"

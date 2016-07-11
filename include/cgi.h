@@ -4,6 +4,7 @@
 #include <time.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 #include <arpa/inet.h>
@@ -25,13 +26,18 @@
 #define CGI_URL_DLTRIE_KEY_SIZE 32
 #define CGI_CONNECTION_SIZE 1024
 #define CGI_EVENT_SIZE	64
-#define CGI_THREAD_POOL_SIZE 1
+#define CGI_THREAD_POOL_SIZE 16
 #define CGI_NAME_BUFFER_SIZE 128
 #define CGI_FILE_BUFFER_SIZE 4096
 
 #define CGI_WEB_ROOT            "../web/"
 #define CGI_WEB_DLPATH          "../web/lib/"
 #define CGI_WEB_PUBLIC_PATH     "../web/public/"
+
+#define CGI_WEB_PLUGIN_DIR "../web/plugins/"
+#define SUFFIX ".so"
+
+#define KEEP_ALIVE_ALLOW true
 
 typedef enum CGI_OBJECT CGI_OBJECT;
 typedef enum LINE_STATUS LINE_STATUS;
@@ -46,8 +52,6 @@ typedef struct cgi_event_dispatcher cgi_event_dispatcher_t;
 typedef struct cgi_template_engine cgi_template_engine_t;
 
 typedef void (*cgi_handler_t)(Request *, Response **, sqlite3 *db);
-
-sqlite3 *DB;
 
 enum CGI_OBJECT {
     HTTP_CONNECTION,
@@ -93,6 +97,7 @@ enum HTTP_METHOD {
     PATCH
 };
 */
+
 struct cgi_http_connection {
     cgi_event_dispatcher_t *dispatcher;
     char *rbuffer;

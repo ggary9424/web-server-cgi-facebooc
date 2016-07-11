@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <time.h>
 
 #include "bs/bs.h"
@@ -161,8 +160,8 @@ fail:
 
 void postDel(Post *post)
 {
-	if( post != NULL){
-    	bsDel(post->body);
-    	free(post);
-	}
+    if(post != NULL){
+        bsDel(post->body);
+        free(post);
+    }
 }

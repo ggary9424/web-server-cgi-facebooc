@@ -27,7 +27,6 @@ void do_response(Request *req, Response ** res, sqlite3 *db)
 
     char sbuff[1024];
     sprintf(sbuff, "/profile?id=%d", account->id);
-    bsDel(idStr);
     *res = responseNewRedirect(sbuff);
 	return;
 

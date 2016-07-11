@@ -10,7 +10,8 @@ extern "C"
 {
 #endif
 
-void initDB(sqlite3 **db);
+void initDB(sqlite3 **, char *);
+void closeDB(sqlite3 *);
 
 #ifdef __cplusplus
 }

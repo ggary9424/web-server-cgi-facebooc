@@ -18,9 +18,9 @@ static void createDB(sqlite3 *db, const char *e)
     }
 }
 
-void initDB(sqlite3 **db)
+void initDB(sqlite3 **db, char *filename)
 {
-    if (sqlite3_open("db.sqlite3", db)) {
+    if (sqlite3_open(filename, db)) {
         fprintf(stderr, "error: unable to open DB: %s\n", sqlite3_errmsg(*db));
         exit(1);
     }
@@ -62,4 +62,8 @@ void initDB(sqlite3 **db)
              ", author    INTEGER"
              ", post      INTEGER"
              ")");
+}
+
+void closeDB(sqlite3 *db) {
+    sqlite3_close(db);
 }
